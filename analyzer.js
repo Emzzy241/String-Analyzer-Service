@@ -1,4 +1,6 @@
 import readline from "node:readline"
+import crypto from "node:crypto"
+
 
 
 console.log("Please enter in a string")
@@ -11,10 +13,22 @@ const rl = readline.createInterface({
     output: process.stdout
 })
 
-function countUniqueCharacters (str) {
-    const uniqueCharacters = new Set(str)
+function countUniqueCharacters (sentence) {
+    const uniqueCharacters = new Set(sentence)
 
     return uniqueCharacters.size
+}
+
+function wordCounter (sentence) {
+    let amountOfWords = 0;
+    sentence.split(" ").forEach(word => {
+        amountOfWords++
+    })
+    return amountOfWords
+}
+
+function sha256Hash(sentence) {
+    return crypto.createHash('sha256').update(sentence).digest('hex')
 }
 
 rl.question(`What is your sentence? `, sentence => {
@@ -40,14 +54,11 @@ rl.question(`What is your sentence? `, sentence => {
     // console.log(uniqueChars)
     stringProperties.unique_characters = countUniqueCharacters(sentence)
 
-    let wordCounter = 0;
+    stringProperties.word_count = wordCounter(sentence)
 
-    sentence.split(" ").forEach(word => {
-        wordCounter++
-    });
-    console.log(wordCounter)
+    stringProperties.sha256_hash = sha256Hash(sentence)
 
-    stringProperties.word_count = wordCounter
+
 
     console.log(stringProperties)
     rl.close()
