@@ -31,6 +31,30 @@ function sha256Hash(sentence) {
     return crypto.createHash('sha256').update(sentence).digest('hex')
 }
 
+function characterFrequencyMap (sentence) {
+    // A function that takes in a sentence and returns all characters there and creates some form of object and maps every character to the no of occurrence in that sentence
+    const characterCounts = {}
+
+    for (const char of sentence) {
+        characterCounts[char] = (characterCounts[char] || 0) + 1
+    }
+
+    return characterCounts
+}
+
+function countCharacterOccurrences(sentence) {
+  const characterCounts = {}; // This object will store the character counts.
+
+  // Loop through each character of the sentence.
+  for (const char of sentence) {
+    // If the character is already a key in our object, increment its value.
+    // Otherwise, initialize the key with a value of 1.
+    characterCounts[char] = (characterCounts[char] || 0) + 1;
+  }
+
+  return characterCounts;
+}
+
 rl.question(`What is your sentence? `, sentence => {
     console.log(`Hi ${sentence}`)
     stringProperties.length = sentence.length
@@ -57,6 +81,8 @@ rl.question(`What is your sentence? `, sentence => {
     stringProperties.word_count = wordCounter(sentence)
 
     stringProperties.sha256_hash = sha256Hash(sentence)
+
+    stringProperties.character_frequency_map = characterFrequencyMap(sentence)
 
 
 
