@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import * as dotenv from "dotenv";
 import mongoose from "mongoose";
+import { analyzeString } from "./utils/StringAnalyzer.js";
 // Note: We assume StringModel.js and utils/StringAnalyzer.js are in place.
 import StringModel from "./models/stringModel.js"; 
 // import { fetch } from 'node-fetch'; // Required for LLM call in Endpoint 4

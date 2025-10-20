@@ -1,86 +1,94 @@
-import mongoose from "mongoose"
-import crypto from "node:crypto"
+import mongoose from 'mongoose';
 
-
-
-const stringProperties = {}
-
-function isPalindrome(sentence) {
-    let strArrayReversed = sentence.toLowerCase().split("").reverse().join("")
-    if (sentence === strArrayReversed) {
-        console.log("String Entered is a palindrome")
-        return true
-    }
-    else {
-        console.log("String entered is not a palindrome")
-        return false
-    }
-}
-
-function countUniqueCharacters(sentence) {
-    const uniqueCharacters = new Set(sentence)
-
-    return uniqueCharacters.size
-}
-
-function wordCounter(sentence) {
-    let amountOfWords = 0;
-    sentence.split(" ").forEach(word => {
-        amountOfWords++
-    })
-    return amountOfWords
-}
-
-function sha256Hash(sentence) {
-    return crypto.createHash('sha256').update(sentence).digest('hex')
-}
-
-function characterFrequencyMap(sentence) {
-    // A function that takes in a sentence and returns all characters there and creates some form of object and maps every character to the no of occurrence in that sentence
-    const characterCounts = {}
-
-    for (const char of sentence) {
-        characterCounts[char] = (characterCounts[char] || 0) + 1
-    }
-
-    return characterCounts
-}
-
-
-const stringSchema = mongoose.Schema({
-    value: {
-        type: String,
-        required: true,
-        trim: true
+const stringSchema = new mongoose.Schema({
+    // CRITICAL FIX: Explicitly define _id as a String.
+    // This resolves the CastError. Mongoose now accepts the 64-character 
+    // SHA-256 hash as the document's primary key without attempting to 
+    // cast it to a standard 24-character ObjectId.
+    _id: { 
+        type: String, 
+        required: true 
+    },
+    value: { 
+        type: String, 
+        required: true 
     },
     properties: {
-        length: { type: Number, default: 0 },
-        is_palindrome: { type: Boolean, default: false },
-        unique_characters: { type: Number, default: 0 },
-        word_count: { type: Number, default: 0 },
-        sha256_hash: { type: String, default: "" },
-        character_frequency_map: { type: Object, default: {} }
+        length: { type: Number, required: true },
+        word_count: { type: Number, required: true },
+        // The analysis data is calculated and included here.
+        sha256_hash: { type: String, required: true },
+        is_palindrome: { type: Boolean, required: true },
+        // NOTE: Unique characters and character map are not required by the API specs (Endpoints 1-5), 
+        // so they are omitted here for a clean model structure.
+    },
+    created_at: {
+        type: String, 
+        required: true 
     }
 }, {
-    timestamps: true
-})
+    // Schema Options
+    // We set timestamps to false because we explicitly track 'created_at'.
+    timestamps: false,
+    // Enable virtuals for the ID field
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true } 
+});
 
-// Computing properties before saving to database
-stringSchema.pre('save', function (next) {
-    if (!this.isModified('value')) return next()
-    const val = this.value || ""
-    this.properties = {
-        length: val.length,
-        is_palindrome: isPalindrome(val),
-        unique_characters: countUniqueCharacters(val),
-        word_count: wordCounter(val),
-        sha256_hash: sha256Hash(val),
-        character_frequency_map: characterFrequencyMap(val)
+// Define a virtual 'id' property that maps to the '_id' (the hash value).
+// This is good practice for cleaner frontend interaction.
+stringSchema.virtual('id').get(function () {
+    return this._id;
+});
+
+const StringModel = mongoose.model('StringModel', stringSchema);
+
+export default StringModel;
+
+
+
+
+/*
+    import mongoose from 'mongoose';
+
+const stringSchema = new mongoose.Schema({
+    // CRITICAL FIX: Explicitly define _id as a String.
+    // This tells Mongoose not to try and cast the 64-character SHA-256 hash 
+    // into a 24-character ObjectId.
+    _id: { 
+        type: String, 
+        required: true 
+    },
+    value: { 
+        type: String, 
+        required: true 
+    },
+    properties: {
+        length: { type: Number, required: true },
+        word_count: { type: Number, required: true },
+        sha256_hash: { type: String, required: true },
+        is_palindrome: { type: Boolean, required: true },
+    },
+    created_at: {
+        type: String, 
+        required: true 
     }
+}, {
+    // Schema Options
+    timestamps: false,
+    // Enable virtuals for the ID field
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true } 
+});
 
-    next()
-})
+// Define a virtual 'id' property that maps to the '_id' (the hash value).
+// This is good practice for cleaner frontend interaction.
+stringSchema.virtual('id').get(function () {
+    return this._id;
+});
 
-const StringModel = mongoose.model('StringModel', stringSchema)
+const StringModel = mongoose.model('StringModel', stringSchema);
 
-export default StringModel
+export default StringModel;
+
+*/

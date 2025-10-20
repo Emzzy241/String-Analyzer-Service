@@ -6,7 +6,7 @@ Content-Type: application/json
 client: not-browser
 
 {
-  "value": "civic"
+  "value": "men at work men"
 }
 
 ### GET /strings
