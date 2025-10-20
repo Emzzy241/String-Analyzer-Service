@@ -1,15 +1,9 @@
 import mongoose from "mongoose"
 import crypto from "node:crypto"
 
-////////////////////////////////////
 
 
 const stringProperties = {}
-
-// const rl = readline.createInterface({
-//     input: process.stdin,
-//     output: process.stdout
-// })
 
 function isPalindrome(sentence) {
     let strArrayReversed = sentence.toLowerCase().split("").reverse().join("")
@@ -52,8 +46,6 @@ function characterFrequencyMap(sentence) {
     return characterCounts
 }
 
-
-///////////////////////////////////
 
 const stringSchema = mongoose.Schema({
     value: {
