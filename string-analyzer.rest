@@ -1,0 +1,21 @@
+GET http://localhost:8001/strings
+
+###
+POST http://localhost:8001/strings
+Content-Type: application/json
+client: not-browser
+
+{
+  "value": "civic"
+}
+
+### GET /strings
+GET http://localhost:8001/strings
+
+
+### GET /:id
+GET http://localhost:8001/strings/68f65e5e246ed0878f53996c
+
+
+### DELETE /:id
+DELETE http://localhost:8001/strings/68f65e5e246ed0878f53996c
