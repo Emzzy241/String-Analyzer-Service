@@ -1,12 +1,12 @@
-import cors from "cors"
-import express from "express"
-import * as dotenv from "dotenv"
-import mongoose, { mongo } from "mongoose"
-import { createStringSchema } from "./middlewares/validator.js"
-import StringModel from "./models/stringModel.js"
+import cors from "cors";
+import express from "express";
+import * as dotenv from "dotenv";
+import mongoose from "mongoose";
+// Note: We assume StringModel.js and utils/StringAnalyzer.js are in place.
+import StringModel from "./models/stringModel.js"; 
+// import { fetch } from 'node-fetch'; // Required for LLM call in Endpoint 4
 
-dotenv.config()
-
+dotenv.config();
 
 // --- LLM API Configuration for Natural Language Filtering (Endpoint 4) ---
 // Note: In local environments, the key must be set in your .env file.
@@ -18,28 +18,32 @@ if (!GEMINI_API_KEY) {
     console.warn("WARNING: GEMINI_API_KEY is missing. Endpoint 4 may fail outside the Canvas environment without a valid key.");
 }
 
-const app = express()
+const app = express();
+const PORT = process.env.PORT || 8001;
 
-const stringProperties = {}
+// --- Middlewares ---
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors());
 
-
-app.use(express.json())
-// Middleware to parse URL-encoded bodies (for form data)
-// The 'extended: true' option allows for rich objects and arrays to be encoded into the URL-encoded format
-app.use(express.urlencoded({ extended: true }))
-
-app.use(cors())
-
-// Project_1
-const PORT = 8001
-
+// --- Database Connection ---
 try {
-    mongoose.connect(process.env.MONGO_URI)
-    console.log("Database connected!!!")
+    mongoose.connect(process.env.MONGO_URI);
+    console.log("Database connected!!!");
 } catch (error) {
-    console.log(error)
+    console.log(error);
 }
 
+// --- Helper Functions ---
+
+/**
+ * Executes a query against the StringModel and returns the formatted response.
+ * This is used by both Endpoint 3 and Endpoint 4.
+ * @param {object} query - The Mongoose query object.
+ * @param {object} filtersApplied - Filters interpreted from the query parameters.
+ * @param {object} res - Express response object.
+ * @param {boolean} isNaturalLanguage - Flag to adjust response structure for Endpoint 4.
+ */
 const executeQueryAndRespond = async (query, filtersApplied, res, isNaturalLanguage = false) => {
     try {
         const data = await StringModel.find(query); // Find all matching documents
@@ -71,97 +75,52 @@ const executeQueryAndRespond = async (query, filtersApplied, res, isNaturalLangu
     }
 };
 
-app.listen(PORT || "8001", () => {
-    console.log("App is running on PORT: 8001")
-    console.log("Project 1!!!!!!!!!!!!!!")
-})
+// --- Endpoints ---
 
+// 1. Create/Analyze String (POST /strings)
 app.post("/strings", async (req, res) => {
-    console.log(req.body)
-    const { value } = req.body
+    const { value } = req.body;
+
+    if (!value) {
+        return res.status(400).json({ success: false, error: 'Missing "value" field in request body.' });
+    }
+    if (typeof value !== 'string') {
+        return res.status(422).json({ success: false, error: '"value" must be a string.' });
+    }
 
     try {
-        const { error, schemaValue } = createStringSchema.validate({
-            value
-        })
+        const properties = analyzeString(value);
+        const hash = properties.sha256_hash;
 
-        console.log(value)
-
-        if (error) {
-            return res.status(401).json({ success: false, error: error.details[0].message })
+        const existingString = await StringModel.findById(hash);
+        if (existingString) {
+            return res.status(409).json({ 
+                error: "String already exists in the system", 
+                id: hash 
+            });
         }
-
-        const newStringValue = await StringModel.create({
-            value
-        })
-
-        res.status(201).json({ success: true, message: "String has been created", data: newStringValue })
-    } catch (error) {
-        console.log(error)
-    }
-})
-
-// app.get("/strings", async (req, res) => {
-//     try {
-//         const result = await StringModel.find()
-//         res.status(200).json({ success: true, message: "All Strings In Database", data: result})
-//     } catch (error) {
-//         console.log(error.message)
-//     }
-// })
-
-// 2.
-// app.get("/strings/:id", async (req, res) => {
-//     // console.log(id)
-//     try {
-//         const stringId = req.params.id
-//         const stringData = await StringModel.findById(stringId)
-
-//         if (!stringId) {
-//             console.log("No String ID was inputted")
-//             return res.status(400).json({ status: false, message: "No String ID was inputted" })
-//         }
-
-//         if (!stringData) {
-//             return res.status(404).json({ success: false, message: "Could not find a String with that ID" })
-//         }
-
-//         return res.status(200).json({ success: true, message: "The String with that ID has been gotten successfully", data: stringData })
-//     } catch (error) {
-//         console.error("There was an Error fetching the String", error)
-
-//         if (error.name === 'CastError') {
-//             return res.status(400).json({ success: false, error: 'Invalid String ID format' })
-//         }
-//         res.status(500).json({ status: false, error: 'Server Error: Could not fetch String.' })
-//     }
-// })
-
-// app.delete("/strings/:id", async (req, res) => {
-//     try {
-//         const stringId = req.params.id
-//         const existingString = await StringModel.findById(stringId)
-
-//         if (!stringId) {
-//             console.log("No String ID was inputted")
-//             return res.status(400).json({ success: false, message: "No String ID was inputted"})
-//         }
-//         if (!existingString) {
-//             return res.status(404).json({ success: false, message: "Could not find a String with that ID"})
-//         }
-
-//         await existingString.deleteOne({ stringId })
-//         return res.status(204).json({ success: true, message: "String has been deleted successfully"})
         
-//     } catch (error) {
-//         console.log("Failed to delete the string with that ID")
-//         return res.status(400).json({ success: false, message: error})
-//     }
-// })
+        const newStringDoc = await StringModel.create({
+            _id: hash, 
+            value,
+            properties,
+            created_at: new Date().toISOString()
+        });
+        
+        const responseData = newStringDoc.toObject();
+        
+        res.status(201).json({ 
+            id: responseData.id,
+            value: responseData.value,
+            properties: responseData.properties,
+            created_at: responseData.created_at,
+        });
 
-
-
-
+    } catch (error) {
+        console.error("Error creating string:", error);
+        res.status(500).json({ status: false, error: 'Server Error: Failed to create or analyze string.' });
+    }
+});
 
 
 // 3. Get All Strings with Filtering (GET /strings?filters...)
@@ -233,6 +192,7 @@ app.get("/strings", async (req, res) => {
 
 
 // 4. Natural Language Filtering (GET /strings/filter-by-natural-language) - FINAL IMPLEMENTATION
+// MOVED UP to avoid conflict with Endpoint 2 (/strings/:hashValue)
 app.get("/strings/filter-by-natural-language", async (req, res) => {
     const userQuery = req.query.query;
 
@@ -372,58 +332,63 @@ app.get("/strings/filter-by-natural-language", async (req, res) => {
     await executeQueryAndRespond(mongoQuery, { original: userQuery, parsed_filters: effectiveFilters }, res, true);
 });
 
-// 2. GET /:id
-app.get("/strings/:id", async (req, res) => {
-    // console.log(id)
-    try {
-        const stringId = req.params.id
-        const stringData = await StringModel.findById(stringId)
 
-        if (!stringId) {
-            console.log("No String ID was inputted")
-            return res.status(400).json({ status: false, message: "No String ID was inputted" })
-        }
+// 2. Get Specific String (GET /strings/{sha256_hash})
+// MOVED DOWN to ensure specific routes like /strings/filter-by-natural-language are caught first.
+app.get("/strings/:hashValue", async (req, res) => {
+    const hashValue = req.params.hashValue;
+
+    try {
+        const stringData = await StringModel.findById(hashValue);
 
         if (!stringData) {
-            return res.status(404).json({ success: false, message: "Could not find a String with that ID" })
+            return res.status(404).json({ success: false, message: "String not found." });
         }
 
-        return res.status(200).json({ success: true, message: "The String with that ID has been gotten successfully", data: stringData })
+        const responseData = stringData.toObject();
+
+        return res.status(200).json({
+            id: responseData.id,
+            value: responseData.value,
+            properties: responseData.properties,
+            created_at: responseData.created_at,
+        });
+
     } catch (error) {
-        console.error("There was an Error fetching the String", error)
-
-        if (error.name === 'CastError') {
-            return res.status(400).json({ success: false, error: 'Invalid String ID format' })
-        }
-        res.status(500).json({ status: false, error: 'Server Error: Could not fetch String.' })
+        console.error("Error fetching string:", error);
+        res.status(500).json({ status: false, error: 'Server Error: Could not fetch string.' });
     }
-})
+});
 
-// 5. DELETE /strings/:id
 
-app.delete("/strings/:id", async (req, res) => {
+// 5. Delete String (DELETE /strings/{sha256_hash})
+app.delete("/strings/:hashValue", async (req, res) => {
     try {
-        const stringId = req.params.id
-        const existingString = await StringModel.findById(stringId)
+        const hashValue = req.params.hashValue;
+        
+        const existingString = await StringModel.findByIdAndDelete(hashValue); 
 
-        if (!stringId) {
-            console.log("No String ID was inputted")
-            return res.status(400).json({ success: false, message: "No String ID was inputted"})
-        }
         if (!existingString) {
-            return res.status(404).json({ success: false, message: "Could not find a String with that ID"})
+            return res.status(404).json({ success: false, message: "String not found." });
         }
 
-        await existingString.deleteOne({ stringId })
-        return res.status(204).json({ success: true, message: "String has been deleted successfully"})
+        return res.status(204).send();
         
     } catch (error) {
-        console.log("Failed to delete the string with that ID")
-        return res.status(400).json({ success: false, message: error})
+        console.error("Failed to delete the string:", error);
+        return res.status(500).json({ success: false, message: 'Server Error: Could not delete string.' });
     }
-})
+});
 
 
-app.get("/", async (req, res) => {
-    res.send("Welcome to Project_1's app")
-})
+// ROOT check
+app.get("/", (req, res) => {
+    res.send("Welcome to Project_1's String Analyzer Service.");
+});
+
+
+// --- Server Startup ---
+app.listen(PORT, () => {
+    console.log(`\nApp is running on PORT: ${PORT}`);
+    console.log("Project 1 String Analyzer Service is operational.");
+});
