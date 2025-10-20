@@ -4,7 +4,7 @@ import cors from 'cors';
 import fetch from 'node-fetch';
 
 // Local Imports
-import StringModel from './models/StringModel.js';
+import StringModel from './models/stringModel.js';
 import { analyzeString } from './utils/StringAnalyzer.js';
 
 // --- CONFIGURATION ---
