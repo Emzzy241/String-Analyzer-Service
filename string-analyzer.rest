@@ -6,7 +6,7 @@ Content-Type: application/json
 client: not-browser
 
 {
-  "value": "dynasty is the greatest"
+  "value": "womens"
 }
 
 ### GET /strings
@@ -14,14 +14,14 @@ GET http://localhost:8001/strings
 
 
 ### GET /:id
-GET http://localhost:8001/strings/0081779c287d567d9ca622f4c0cc2ede819b0cc7f286a5f01d8c3c0178191ad6
+GET http://localhost:8001/strings/68f63cb0bca76978a53f40c5
 
 ### GET All Strings with filtering
 
-GET http://localhost:8001/strings?is_palindrome=false&min_length=5&max_length=20&contains_character=a
+GET http://localhost:8001/strings?is_palindrome=true&min_length=5&max_length=20&contains_character=c
 
 ### DELETE /:id
-DELETE http://localhost:8001/strings/0081779c287d567d9ca622f4c0cc2ede819b0cc7f286a5f01d8c3c0178191ad6
+DELETE http://localhost:8001/strings/68f767e773c822300059367c
 
 ### GET /strings/filter-by-natural-language
 GET http://localhost:8001/strings/filter-by-natural-language?query=all%20single%20word%20palindromic%20strings
