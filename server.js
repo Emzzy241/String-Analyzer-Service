@@ -71,6 +71,16 @@ const executeQueryAndRespond = async (query, filtersApplied, res, isNaturalLangu
     }
 };
 
+const handleError = (res, statusCode, message, error) => {
+    if (error) {
+        console.error(`[Error ${statusCode}] ${message}:`, error);
+    }
+    res.status(statusCode).json({
+        status: 'error',
+        message: message
+    });
+};
+
 app.listen(PORT || "8001", () => {
     console.log("App is running on PORT: 8001")
     console.log("Project 1!!!!!!!!!!!!!!")
@@ -398,55 +408,114 @@ app.get("/strings/filter-by-natural-language", async (req, res) => {
 });
 
 // 2. GET /:id
-app.get("/strings/:id", async (req, res) => {
-    // console.log(id)
+// app.get("/strings/:id", async (req, res) => {
+//     // console.log(id)
+//     try {
+//         const stringId = req.params.id
+//         const stringData = await StringModel.findById(stringId)
+
+//         if (!stringId) {
+//             console.log("No String ID was inputted")
+//             return res.status(400).json({ status: false, message: "No String ID was inputted" })
+//         }
+
+//         if (!stringData) {
+//             return res.status(404).json({ success: false, message: "String does not exist in the system" })
+//         }
+
+//         return res.status(200).json({ success: true, message: "The String with that ID has been gotten successfully", data: stringData })
+//     } catch (error) {
+//         console.error("There was an Error fetching the String", error)
+
+//         if (error.name === 'CastError') {
+//             return res.status(400).json({ success: false, error: 'Invalid String ID format' })
+//         }
+//         res.status(500).json({ status: false, error: 'Server Error: Could not fetch String.' })
+//     }
+// })
+
+
+// Endpoint 2: GET /strings/:hashValue - Get a specific string by hash
+app.get("/strings/:hashValue", async (req, res) => {
+    const hashValue = req.params.hashValue;
+    
     try {
-        const stringId = req.params.id
-        const stringData = await StringModel.findById(stringId)
+        // Use findById as the hash is set as the _id field
+        const stringDoc = await StringModel.findById(hashValue).exec();
 
-        if (!stringId) {
-            console.log("No String ID was inputted")
-            return res.status(400).json({ status: false, message: "No String ID was inputted" })
+        if (!stringDoc) {
+            // 404 for valid hash format but non-existent string
+            return handleError(res, 404, "String not found.");
         }
 
-        if (!stringData) {
-            return res.status(404).json({ success: false, message: "String does not exist in the system" })
-        }
-
-        return res.status(200).json({ success: true, message: "The String with that ID has been gotten successfully", data: stringData })
+        res.status(200).json({
+            status: 'success',
+            data: {
+                id: stringDoc.id,
+                value: stringDoc.value,
+                properties: stringDoc.properties,
+                created_at: stringDoc.created_at
+            }
+        });
     } catch (error) {
-        console.error("There was an Error fetching the String", error)
-
+        // CRITICAL FIX: Treat CastError (invalid hash format) as 404 Not Found
         if (error.name === 'CastError') {
-            return res.status(400).json({ success: false, error: 'Invalid String ID format' })
+             // This handles cases where the hashValue is not a 64-character hex string
+            return handleError(res, 404, "String not found (Invalid hash format).");
         }
-        res.status(500).json({ status: false, error: 'Server Error: Could not fetch String.' })
+        handleError(res, 500, "There was an Error fetching the String.", error);
     }
-})
+});
+
 
 // 5. DELETE /strings/:id
 
-app.delete("/strings/:id", async (req, res) => {
+// Endpoint 5: DELETE /strings/:hashValue - Delete a specific string by hash
+app.delete("/strings/:hashValue", async (req, res) => {
+    const hashValue = req.params.hashValue;
+    
     try {
-        const stringId = req.params.id
-        const existingString = await StringModel.findById(stringId)
+        // Use the efficient static method to find and delete in one operation
+        const result = await StringModel.findByIdAndDelete(hashValue).exec();
 
-        if (!stringId) {
-            console.log("No String ID was inputted")
-            return res.status(400).json({ success: false, message: "No String ID was inputted" })
-        }
-        if (!existingString) {
-            return res.status(404).json({ success: false, message: "String does not exist in the system" })
+        if (!result) {
+            // 404 Not Found if no document was deleted
+            return handleError(res, 404, "String not found.");
         }
 
-        await existingString.deleteOne({ stringId })
-        return res.status(204).json({ success: true, message: "String has been deleted successfully" })
+        // CRITICAL FIX: Return 204 No Content with an empty body
+        res.status(204).end();
 
     } catch (error) {
-        console.log("Failed to delete the string with that ID")
-        return res.status(400).json({ success: false, message: error })
+        if (error.name === 'CastError') {
+             // Treat non-matching format as Not Found
+            return handleError(res, 404, "String not found (Invalid hash format).");
+        }
+        handleError(res, 500, "Error deleting string.", error);
     }
-})
+});
+
+// app.delete("/strings/:id", async (req, res) => {
+//     try {
+//         const stringId = req.params.id
+//         const existingString = await StringModel.findById(stringId)
+
+//         if (!stringId) {
+//             console.log("No String ID was inputted")
+//             return res.status(400).json({ success: false, message: "No String ID was inputted" })
+//         }
+//         if (!existingString) {
+//             return res.status(404).json({ success: false, message: "String does not exist in the system" })
+//         }
+
+//         await existingString.deleteOne({ stringId })
+//         return res.status(204).json({ success: true, message: "String has been deleted successfully" })
+
+//     } catch (error) {
+//         console.log("Failed to delete the string with that ID")
+//         return res.status(400).json({ success: false, message: error })
+//     }
+// })
 
 
 app.get("/", async (req, res) => {

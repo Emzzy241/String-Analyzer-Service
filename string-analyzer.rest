@@ -14,14 +14,14 @@ GET http://localhost:8001/strings
 
 
 ### GET /:id
-GET http://localhost:8001/strings/68f63cb0bca76978a53f40c5
+GET http://localhost:8001/strings/68f645d64f02beebf9bf5502
 
 ### GET All Strings with filtering
 
 GET http://localhost:8001/strings?is_palindrome=true&min_length=5&max_length=20&contains_character=c
 
-### DELETE /:id
-DELETE http://localhost:8001/strings/68f767e773c822300059367c
+### DELETE /:hashValue
+DELETE http://localhost:8001/strings/68f63cb0bca76978a53f40c5
 
 ### GET /strings/filter-by-natural-language
 GET http://localhost:8001/strings/filter-by-natural-language?query=all%20single%20word%20palindromic%20strings
