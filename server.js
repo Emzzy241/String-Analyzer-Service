@@ -10,7 +10,7 @@ dotenv.config()
 
 // --- LLM API Configuration for Natural Language Filtering (Endpoint 4) ---
 // Note: In local environments, the key must be set in your .env file.
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ""; 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
 
 // Optional warning for local testing outside Canvas
@@ -43,10 +43,10 @@ try {
 const executeQueryAndRespond = async (query, filtersApplied, res, isNaturalLanguage = false) => {
     try {
         const data = await StringModel.find(query); // Find all matching documents
-        
+
         // Map to ensure 'id' is present (from virtual property in StringModel)
         const formattedData = data.map(doc => doc.toObject());
-        
+
         // Response structure for Endpoint 3 (Standard Filtering)
         let responseBody = {
             data: formattedData,
@@ -56,13 +56,13 @@ const executeQueryAndRespond = async (query, filtersApplied, res, isNaturalLangu
 
         // Response structure for Endpoint 4 (Natural Language Filtering)
         if (isNaturalLanguage) {
-             responseBody = {
+            responseBody = {
                 data: formattedData,
                 count: formattedData.length,
                 interpreted_query: filtersApplied
             };
         }
-        
+
         res.status(200).json(responseBody);
 
     } catch (error) {
@@ -78,7 +78,26 @@ app.listen(PORT || "8001", () => {
 
 app.post("/strings", async (req, res) => {
     console.log(req.body)
+
+    // Check if the entire request body is empty
+    if (Object.keys(req.body).length === 0) {
+        return res.status(400).json({ success: false, message: "Request body is empty" });
+    }
+
     const { value } = req.body
+
+    if (value === null || value === undefined) {
+        return res.status(400).json({ success: false, message: "Invalid request body or missing 'value' field" })
+    }
+
+    if (typeof value !== "string" )
+    {
+        return res.status(422).json({ success: false, message: "Invalid data type for 'value' (must be string)"})
+    }
+
+
+
+
 
     try {
         const { error, schemaValue } = createStringSchema.validate({
@@ -89,6 +108,12 @@ app.post("/strings", async (req, res) => {
 
         if (error) {
             return res.status(401).json({ success: false, error: error.details[0].message })
+        }
+
+        const existingString = await StringModel.findOne({ value})
+
+        if (existingString) {
+            return res.status(409).json({ success: false, message: "409 Conflict: String already exists in the system"})
         }
 
         const newStringValue = await StringModel.create({
@@ -152,7 +177,7 @@ app.post("/strings", async (req, res) => {
 
 //         await existingString.deleteOne({ stringId })
 //         return res.status(204).json({ success: true, message: "String has been deleted successfully"})
-        
+
 //     } catch (error) {
 //         console.log("Failed to delete the string with that ID")
 //         return res.status(400).json({ success: false, message: error})
@@ -176,7 +201,7 @@ app.get("/strings", async (req, res) => {
         if (value !== undefined) {
             filtersApplied[key] = value;
             if (!validateFn(value)) {
-                 throw new Error(`Invalid type or value for ${key}. Expected ${type}.`);
+                throw new Error(`Invalid type or value for ${key}. Expected ${type}.`);
             }
             return value;
         }
@@ -203,7 +228,7 @@ app.get("/strings", async (req, res) => {
             const numVal = parseInt(maxLength);
             mongoQuery['properties.length'] = { ...mongoQuery['properties.length'], $lte: numVal };
         }
-        
+
         // word_count: integer (exact match)
         const wordCount = parseFilter('word_count', 'integer', (v) => !isNaN(parseInt(v)) && parseInt(v) >= 0);
         if (wordCount !== null) {
@@ -213,18 +238,18 @@ app.get("/strings", async (req, res) => {
         // contains_character: string (single character to search for)
         const containsChar = parseFilter('contains_character', 'string', (v) => typeof v === 'string' && v.length === 1);
         if (containsChar !== null) {
-             // Case-insensitive search on the original string value
-            mongoQuery['value'] = { $regex: containsChar, $options: 'i' }; 
+            // Case-insensitive search on the original string value
+            mongoQuery['value'] = { $regex: containsChar, $options: 'i' };
         }
-        
+
         // Check for conflicting length filters
         if (minLength !== null && maxLength !== null && parseInt(minLength) > parseInt(maxLength)) {
-             throw new Error(`min_length (${minLength}) cannot be greater than max_length (${maxLength}).`);
+            throw new Error(`min_length (${minLength}) cannot be greater than max_length (${maxLength}).`);
         }
 
     } catch (error) {
         console.error("Filter validation error:", error.message);
-        return res.status(400).json({ error: "Bad Request: " + error.message, filters_applied: filtersApplied });
+        return res.status(400).json({ error: "Bad Request: " + error.message, filters_applied: filtersApplied, message: "Invalid query parameter values or types" });
     }
 
     // Execute the query with the constructed filters
@@ -239,7 +264,7 @@ app.get("/strings/filter-by-natural-language", async (req, res) => {
     if (!userQuery) {
         return res.status(400).json({ error: 'Missing "query" parameter for natural language filtering.' });
     }
-    
+
     // 1. Define the JSON schema for the desired filter output
     const filterSchema = {
         type: "OBJECT",
@@ -295,20 +320,20 @@ app.get("/strings/filter-by-natural-language", async (req, res) => {
                 await new Promise(resolve => setTimeout(resolve, delay));
                 delay *= 2; // Exponential backoff
             } else {
-                 throw new Error(`LLM API failed after ${maxRetries} retries.`);
+                throw new Error(`LLM API failed after ${maxRetries} retries.`);
             }
         }
-        
+
         const result = await apiResponse.json();
         const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-        
+
         if (!jsonText) {
             return res.status(400).json({ error: "Unable to parse natural language query: LLM output was empty." });
         }
-        
+
         // 5. Parse the LLM's JSON response
         parsedFilters = JSON.parse(jsonText);
-        
+
     } catch (llmError) {
         console.error("LLM or JSON parsing error:", llmError.message);
         return res.status(400).json({ error: "Unable to parse natural language query. Check query format or server logs." });
@@ -330,35 +355,35 @@ app.get("/strings/filter-by-natural-language", async (req, res) => {
 
         // Apply length filters
         if (min_length !== undefined) {
-             if (typeof min_length !== 'number') throw new Error("min_length must be integer.");
+            if (typeof min_length !== 'number') throw new Error("min_length must be integer.");
             mongoQuery['properties.length'] = { ...mongoQuery['properties.length'], $gte: min_length };
             effectiveFilters.min_length = min_length;
         }
         if (max_length !== undefined) {
-             if (typeof max_length !== 'number') throw new Error("max_length must be integer.");
+            if (typeof max_length !== 'number') throw new Error("max_length must be integer.");
             mongoQuery['properties.length'] = { ...mongoQuery['properties.length'], $lte: max_length };
             effectiveFilters.max_length = max_length;
         }
-        
+
         // Apply word_count
         if (word_count !== undefined) {
-             if (typeof word_count !== 'number') throw new Error("word_count must be integer.");
+            if (typeof word_count !== 'number') throw new Error("word_count must be integer.");
             mongoQuery['properties.word_count'] = word_count;
             effectiveFilters.word_count = word_count;
         }
 
         // Apply contains_character
         if (contains_character) {
-             if (typeof contains_character !== 'string' || contains_character.length !== 1) throw new Error("contains_character must be a single character string.");
+            if (typeof contains_character !== 'string' || contains_character.length !== 1) throw new Error("contains_character must be a single character string.");
             mongoQuery['value'] = { $regex: contains_character, $options: 'i' };
             effectiveFilters.contains_character = contains_character;
         }
 
         // Check for conflicting filters (422 Unprocessable Entity)
         if (min_length !== undefined && max_length !== undefined && min_length > max_length) {
-            return res.status(422).json({ 
-                error: "Query parsed but resulted in conflicting filters (min_length > max_length).", 
-                interpreted_query: { original: userQuery, parsed_filters: parsedFilters } 
+            return res.status(422).json({
+                error: "Query parsed but resulted in conflicting filters (min_length > max_length).",
+                interpreted_query: { original: userQuery, parsed_filters: parsedFilters }
             });
         }
 
@@ -385,7 +410,7 @@ app.get("/strings/:id", async (req, res) => {
         }
 
         if (!stringData) {
-            return res.status(404).json({ success: false, message: "Could not find a String with that ID" })
+            return res.status(404).json({ success: false, message: "String does not exist in the system" })
         }
 
         return res.status(200).json({ success: true, message: "The String with that ID has been gotten successfully", data: stringData })
@@ -408,18 +433,18 @@ app.delete("/strings/:id", async (req, res) => {
 
         if (!stringId) {
             console.log("No String ID was inputted")
-            return res.status(400).json({ success: false, message: "No String ID was inputted"})
+            return res.status(400).json({ success: false, message: "No String ID was inputted" })
         }
         if (!existingString) {
-            return res.status(404).json({ success: false, message: "Could not find a String with that ID"})
+            return res.status(404).json({ success: false, message: "String does not exist in the system" })
         }
 
         await existingString.deleteOne({ stringId })
-        return res.status(204).json({ success: true, message: "String has been deleted successfully"})
-        
+        return res.status(204).json({ success: true, message: "String has been deleted successfully" })
+
     } catch (error) {
         console.log("Failed to delete the string with that ID")
-        return res.status(400).json({ success: false, message: error})
+        return res.status(400).json({ success: false, message: error })
     }
 })
 
