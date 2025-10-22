@@ -25,3 +25,5 @@ DELETE http://localhost:8001/strings/68f63cb0bca76978a53f40c5
 
 ### GET /strings/filter-by-natural-language
 GET http://localhost:8001/strings/filter-by-natural-language?query=all%20single%20word%20palindromic%20strings
+
+GET 

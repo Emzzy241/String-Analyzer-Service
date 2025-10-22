@@ -136,69 +136,6 @@ app.post("/strings", async (req, res) => {
     }
 })
 
-// app.get("/strings", async (req, res) => {
-//     try {
-//         const result = await StringModel.find()
-//         res.status(200).json({ success: true, message: "All Strings In Database", data: result})
-//     } catch (error) {
-//         console.log(error.message)
-//     }
-// })
-
-// 2.
-// app.get("/strings/:id", async (req, res) => {
-//     // console.log(id)
-//     try {
-//         const stringId = req.params.id
-//         const stringData = await StringModel.findById(stringId)
-
-//         if (!stringId) {
-//             console.log("No String ID was inputted")
-//             return res.status(400).json({ status: false, message: "No String ID was inputted" })
-//         }
-
-//         if (!stringData) {
-//             return res.status(404).json({ success: false, message: "Could not find a String with that ID" })
-//         }
-
-//         return res.status(200).json({ success: true, message: "The String with that ID has been gotten successfully", data: stringData })
-//     } catch (error) {
-//         console.error("There was an Error fetching the String", error)
-
-//         if (error.name === 'CastError') {
-//             return res.status(400).json({ success: false, error: 'Invalid String ID format' })
-//         }
-//         res.status(500).json({ status: false, error: 'Server Error: Could not fetch String.' })
-//     }
-// })
-
-// app.delete("/strings/:id", async (req, res) => {
-//     try {
-//         const stringId = req.params.id
-//         const existingString = await StringModel.findById(stringId)
-
-//         if (!stringId) {
-//             console.log("No String ID was inputted")
-//             return res.status(400).json({ success: false, message: "No String ID was inputted"})
-//         }
-//         if (!existingString) {
-//             return res.status(404).json({ success: false, message: "Could not find a String with that ID"})
-//         }
-
-//         await existingString.deleteOne({ stringId })
-//         return res.status(204).json({ success: true, message: "String has been deleted successfully"})
-
-//     } catch (error) {
-//         console.log("Failed to delete the string with that ID")
-//         return res.status(400).json({ success: false, message: error})
-//     }
-// })
-
-
-
-
-
-
 // 3. Get All Strings with Filtering (GET /strings?filters...)
 app.get("/strings", async (req, res) => {
     const filters = req.query;
@@ -265,7 +202,6 @@ app.get("/strings", async (req, res) => {
     // Execute the query with the constructed filters
     await executeQueryAndRespond(mongoQuery, filtersApplied, res);
 });
-
 
 // 4. Natural Language Filtering (GET /strings/filter-by-natural-language) - FINAL IMPLEMENTATION
 app.get("/strings/filter-by-natural-language", async (req, res) => {
@@ -433,7 +369,6 @@ app.get("/strings/filter-by-natural-language", async (req, res) => {
 //         res.status(500).json({ status: false, error: 'Server Error: Could not fetch String.' })
 //     }
 // })
-
 
 // Endpoint 2: GET /strings/:hashValue - Get a specific string by hash
 app.get("/strings/:hashValue", async (req, res) => {
